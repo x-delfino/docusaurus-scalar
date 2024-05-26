@@ -1,6 +1,6 @@
 import type * as Preset from "@docusaurus/preset-classic";
 import type { Config } from "@docusaurus/types";
-import type { ScalarOptions } from "docusaurus-scalar";
+import type { ScalarConfig } from "docusaurus-scalar";
 import { themes as prismThemes } from "prism-react-renderer";
 
 const config: Config = {
@@ -61,7 +61,9 @@ const config: Config = {
       {
         showSidebar: true,
         hideModels: true,
-        routePath: "specs",
+        route: {
+          route: "specs",
+        },
         paths: [
           {
             path: "./specifications/",
@@ -69,26 +71,32 @@ const config: Config = {
           },
           {
             path: "./specifications/group/",
-            include: "**/*.{json,yaml,yml}",
+            include: ["**/*.{json,yaml,yml}"],
             showSidebar: false,
-            category: "Static Group",
-            routePath: "route_path",
+            nav: {
+              category: "Static Group",
+            },
+            route: {
+              route: "route_path",
+            },
           },
           {
             path: "./specifications/group/",
-            include: "**/*.{json,yaml,yml}",
+            include: ["**/*.{json,yaml,yml}"],
             hideModels: false,
           },
         ],
         configurations: [
           {
-            routePath: "openapi-configs",
+            route: {
+              route: "openapi-configs",
+            },
             spec: {
               url: "https://petstore3.swagger.io/api/v3/openapi.json",
             },
           },
         ],
-      } as ScalarOptions,
+      } as ScalarConfig,
     ],
   ],
 
