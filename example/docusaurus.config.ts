@@ -57,7 +57,7 @@ const config: Config = {
 
   plugins: [
     [
-      "docusaurus-scalar",
+      "@x-delfino/docusaurus-scalar",
       {
         showSidebar: true,
         hideModels: true,
