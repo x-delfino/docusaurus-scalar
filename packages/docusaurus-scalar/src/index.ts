@@ -1,6 +1,6 @@
 import type { LoadContext, Plugin } from "@docusaurus/types";
 import type { ReferenceConfiguration } from "@scalar/api-reference";
-import { resolve, loadFiles, validate } from "@scalar/openapi-parser";
+import { dereference,   fetchUrlsPlugin, load, readFilesPlugin, validate } from "@scalar/openapi-parser";
 import { globby } from "globby";
 import _ from "lodash";
 import path from "path";
@@ -133,12 +133,14 @@ async function loadSpecFromFile(
 ): Promise<SpecConfig> {
   const { dir, base, ext } = path.parse(file);
   // get files and resolve any references
-  const fileSystem = loadFiles(path.resolve(`${source.path}/${file}`));
-  const resolved = await resolve(fileSystem);
+  const fileSystem = await load(path.resolve(`${source.path}/${file}`), {
+    plugins: [readFilesPlugin(), fetchUrlsPlugin()],
+  })
+  const derefed = await dereference(fileSystem);
   const config = {
     ...source,
     spec: {
-      content: resolved.schema,
+      content: derefed.schema,
     },
     nav: {
       // check whether label from filename should be used
@@ -177,7 +179,7 @@ async function loadSpecFromContent(
           ? { label: config.nav.label }
           : // if labelFromSpec, retrieve the label from the specification
           config.nav.labelFromSpec
-          ? { label: validated.specification?.info.title }
+          ? { label: validated.specification?.info?.title }
           : undefined
         : undefined,
       ...config,

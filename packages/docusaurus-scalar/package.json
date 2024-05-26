@@ -1,5 +1,5 @@
 {
-  "name": "docusaurus-scalar",
+  "name": "@x-delfino/docusaurus-scalar",
   "description": "Docusaurus integration for api references",
   "license": "MIT",
   "author": "Scalar (https://github.com/scalar)",
@@ -21,7 +21,7 @@
   "dependencies": {
     "@scalar/api-reference": "^1.22.33",
     "@scalar/api-reference-react": "^0.1.75",
-    "@scalar/openapi-parser": "file:../../../openapi-parser/packages/openapi-parser",
+    "@scalar/openapi-parser": "^0.4.1",
     "@docusaurus/logger": "^3.3.2"
   },
   "devDependencies": {
