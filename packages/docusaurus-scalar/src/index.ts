@@ -143,6 +143,7 @@ async function loadSpecFromFile(
       content: derefed.schema,
     },
     nav: {
+      ...source.nav,
       // check whether label from filename should be used
       label: source?.nav?.labelFromFilename ? base : undefined,
       // use a set category or use parent folder
@@ -172,7 +173,10 @@ async function loadSpecFromContent(
   if (config.spec?.content) {
     // validate config
     const validated = await validate(config.spec.content);
-    config = {
+    console.log(validated.specification?.info)
+    console.log(config.nav ? config.nav.label ? config.nav.label : config.nav.labelFromSpec? validated.specification?.info?.title : undefined : undefined)
+    return {
+      ...config,
       nav: config.nav
         ? // if label provided, use that
           config.nav.label
@@ -182,7 +186,6 @@ async function loadSpecFromContent(
           ? { label: validated.specification?.info?.title }
           : undefined
         : undefined,
-      ...config,
       // ensure route is in kebab case
       route: {
         route: `/${path.join(
@@ -196,7 +199,6 @@ async function loadSpecFromContent(
   } else {
     throw "Specification content has not been loaded";
   }
-  return config;
 }
 
 async function loadSpecsFromConfig(
@@ -334,6 +336,7 @@ const ScalarDocusaurus = (
     async contentLoaded({ content, actions }) {
       const { addRoute } = actions;
       content.forEach((contentItem) => {
+        console.log(contentItem)
         if (contentItem.route?.route) {
           // add route
           addRoute({

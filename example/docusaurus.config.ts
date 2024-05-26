@@ -1,6 +1,6 @@
 import type * as Preset from "@docusaurus/preset-classic";
 import type { Config } from "@docusaurus/types";
-import type { ScalarConfig } from "docusaurus-scalar";
+import type { ScalarConfig } from "@x-delfino/docusaurus-scalar";
 import { themes as prismThemes } from "prism-react-renderer";
 
 const config: Config = {
