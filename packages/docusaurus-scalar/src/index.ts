@@ -1,10 +1,18 @@
 import type { LoadContext, Plugin } from "@docusaurus/types";
 import type { ReferenceConfiguration } from "@scalar/api-reference";
-import { dereference,   fetchUrlsPlugin, load, readFilesPlugin, validate } from "@scalar/openapi-parser";
+import {
+  OpenAPI,
+  dereference,
+  fetchUrlsPlugin,
+  load,
+  readFilesPlugin,
+  validate,
+} from "@scalar/openapi-parser";
 import { globby } from "globby";
 import _ from "lodash";
 import path from "path";
 import logger from "@docusaurus/logger";
+import * as fsp from "fs/promises";
 
 export type NavConfig = {
   category?: string; // not supported if categoryFromPath is true
@@ -70,34 +78,23 @@ async function loadSpecsFromPath(
   return (
     await Promise.all(
       paths.map(async (source): Promise<SpecConfig[]> => {
-        // get file list from glob
-        const files = await globby(source?.include || "*", {
-          cwd: source.path,
-          ignore: source.exclude,
-        });
-        const fileSpecs = (
-          await Promise.all(
-            files.map(async (file) => {
-              try {
-                // merge config with base config
-                const merged = mergeConfig(source, baseConfig) as PathConfig;
-                // load the specificiation from the file
-                return await loadSpecFromFile(merged, file);
-                // need to improve error handling
-              } catch (e) {
-                if (typeof e === "string") {
-                  logger.warn(e.toUpperCase());
-                } else if (e instanceof Error) {
-                  logger.warn(e.message);
-                }
-                return [];
-              }
-            })
-          )
-        ).flat();
+        const stats = await fsp.stat(source.path);
+        // merge config with base config
+        const merged = mergeConfig(source, baseConfig) as PathConfig;
+        const fileSpecs = await Promise.all(
+          (stats.isDirectory()
+            ? await globby(source?.include || "*", {
+                cwd: source.path,
+                ignore: source.exclude,
+              })
+            : stats.isFile()
+            ? [source.path]
+            : []
+          ).map(async (file) => await loadSpecFromFile(merged, file))
+        );
         logger.info`[Scalar] number=${
           fileSpecs.length
-        } specifications loaded from path=${`${source.path}${source.include}`}`;
+        } specifications loaded from path=${`${source.path}/${source.include}`}`;
         return fileSpecs;
       })
     )
@@ -116,7 +113,7 @@ function mergeConfig(
         a = a || {};
         const k = key as keyof typeof a;
         // return source config or the base config
-        return [key, a[k] || b[k]];
+        return [key, typeof a[k] !== 'undefined' ? a[k] : b[k]];
       })
     );
   };
@@ -127,39 +124,45 @@ function mergeConfig(
   };
 }
 
+async function loadSpecContent(
+  specPath: string
+): Promise<OpenAPI.Document | undefined> {
+  const fileSystem = await load(specPath, {
+    plugins: [readFilesPlugin(), fetchUrlsPlugin()],
+  });
+  return (await dereference(fileSystem)).schema;
+}
+
 async function loadSpecFromFile(
   source: PathConfig,
   file: string
 ): Promise<SpecConfig> {
-  const { dir, base, ext } = path.parse(file);
+  const { dir, name } = path.parse(file);
   // get files and resolve any references
-  const fileSystem = await load(path.resolve(`${source.path}/${file}`), {
-    plugins: [readFilesPlugin(), fetchUrlsPlugin()],
-  })
-  const derefed = await dereference(fileSystem);
   const config = {
     ...source,
     spec: {
-      content: derefed.schema,
+      content: await loadSpecContent(`${source.path}/${file}`),
     },
     nav: {
       ...source.nav,
       // check whether label from filename should be used
-      label: source?.nav?.labelFromFilename ? base : undefined,
+      label: source?.nav?.labelFromFilename ? name : undefined,
       // use a set category or use parent folder
       category:
         source?.nav?.category || source?.nav?.categoryFromPath
-          ? file.split(path.sep).reverse()[1]
+          ? file.split(path.sep)[0]
           : undefined,
     },
-    // set route with file path appended - may change?
     route: {
+      ...source.route,
       route: path.join(
         "/",
         ...[
           source?.route?.route || "",
-          ...dir.split(path.sep),
-          base.substring(0, base.lastIndexOf(ext)),
+          ...(source?.route?.routeFromPath
+            ? [...dir.split(path.sep), name]
+            : []),
         ]
       ),
     },
@@ -167,9 +170,7 @@ async function loadSpecFromFile(
   return await loadSpecFromContent(config);
 }
 
-async function loadSpecFromContent(
-  config: SpecConfig
-): Promise<SpecConfig> {
+async function loadSpecFromContent(config: SpecConfig): Promise<SpecConfig> {
   if (config.spec?.content) {
     // validate config
     const validated = await validate(config.spec.content);
@@ -177,21 +178,24 @@ async function loadSpecFromContent(
       ...config,
       nav: config.nav
         ? // if label provided, use that
-          config.nav.label
-          ? { label: config.nav.label }
-          : // if labelFromSpec, retrieve the label from the specification
-          config.nav.labelFromSpec
-          ? { label: validated.specification?.info?.title }
-          : undefined
+          {
+            label: config.nav.labelFromSpec
+              ? validated.specification?.info?.title
+              : config.nav.label,
+            category: config.nav.category,
+          }
         : undefined,
       // ensure route is in kebab case
       route: {
-        route: `/${path.join(
-          ...(config?.route?.route || "")
-            .split("/")
-            .map((segment) => _.kebabCase(segment)),
-          "/"
-        )}`,
+        route: path.join(
+          "/",
+          ...[
+            config?.route?.route || "",
+            config?.route?.routeFromSpec
+              ? validated.specification?.info?.title || ""
+              : "",
+          ].flatMap((seg) => seg.split("/").map((s) => _.kebabCase(s)))
+        ),
       },
     };
   } else {
@@ -213,7 +217,7 @@ async function loadSpecsFromConfig(
           content: config.spec?.content
             ? config.spec.content
             : config.spec?.url
-            ? await (await fetch(config.spec.url)).json()
+            ? await loadSpecContent(config.spec.url)
             : undefined,
         },
       };
@@ -265,7 +269,7 @@ async function addToNav(context: LoadContext, config: SpecConfig) {
         to: config.route.route,
         position: "left",
       };
-      const navBar = context.siteConfig.themeConfig.navbar as {
+      const navBar = context.siteConfig.themeConfig.navbar as  {
         items: Record<string, string | object[]>[];
       };
       // check if nav item has a category
