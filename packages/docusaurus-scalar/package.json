@@ -3,7 +3,7 @@
   "description": "Docusaurus integration for api references",
   "license": "MIT",
   "author": "Scalar (https://github.com/scalar)",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "engines": {
     "node": ">=18"
   },
@@ -19,9 +19,9 @@
     "CHANGELOG.md"
   ],
   "dependencies": {
-    "@scalar/api-reference": "^1.22.33",
-    "@scalar/api-reference-react": "^0.1.75",
-    "@scalar/openapi-parser": "file:../../../openapi-parser/packages/openapi-parser",
+    "@scalar/api-reference": "^1.22.54",
+    "@scalar/api-reference-react": "0.1.95",
+    "@scalar/openapi-parser": "^0.5.0",
     "@docusaurus/logger": "^3.3.2",
     "globby": "^14.0.1",
     "path": "^0.12.7",
